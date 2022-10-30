@@ -566,6 +566,9 @@ var (
 		},
 		unix.SYS_OPENAT: {
 			Name: "openat",
+			ReturnValue: ReturnMetadata{
+				Type: ArgTypeInt,
+			},
 			Args: []ArgMetadata{
 				{
 					Name:      "dfd",
@@ -592,6 +595,9 @@ var (
 		},
 		unix.SYS_NEWFSTATAT: {
 			Name: "newfstatat",
+			ReturnValue: ReturnMetadata{
+				Type: ArgTypeErrorCode,
+			},
 			Args: []ArgMetadata{
 				{
 					Name:      "dfd",
@@ -616,6 +622,9 @@ var (
 		},
 		unix.SYS_EXIT: {
 			Name: "exit",
+			ReturnValue: ReturnMetadata{
+				Type: ArgTypeErrorCode,
+			},
 			Args: []ArgMetadata{
 				{
 					Name: "status",
@@ -625,6 +634,9 @@ var (
 		},
 		unix.SYS_EXIT_GROUP: {
 			Name: "exit_group",
+			ReturnValue: ReturnMetadata{
+				Type: ArgTypeErrorCode,
+			},
 			Args: []ArgMetadata{
 				{
 					Name: "status",

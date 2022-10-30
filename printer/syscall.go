@@ -11,6 +11,7 @@ func (p *Printer) PrintSyscallEnter(syscall *tracer.Syscall) {
 		p.PrintColour(ColourDefault, syscall.Name())
 	}
 	p.printRemainingArgs(syscall, false)
+	p.inSyscall = true
 }
 
 func (p *Printer) PrintSyscallExit(syscall *tracer.Syscall) {
@@ -22,6 +23,7 @@ func (p *Printer) PrintSyscallExit(syscall *tracer.Syscall) {
 	if p.extraNewLine {
 		p.Print("\n")
 	}
+	p.inSyscall = false
 }
 
 func (p *Printer) printRemainingArgs(syscall *tracer.Syscall, exit bool) {

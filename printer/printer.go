@@ -16,6 +16,7 @@ type Printer struct {
 	argProgress         int
 	extraNewLine        bool
 	multiline           bool
+	inSyscall           bool
 }
 
 func New(w io.Writer) *Printer {
@@ -82,8 +83,11 @@ func (p *Printer) PrintProcessExit(i int) {
 	if i != 0 {
 		colour = ColourRed
 	}
+	if p.inSyscall {
+		p.PrintDim(" = ?\n")
+	}
 	if p.multiline {
 		p.Print("\n")
 	}
-	p.PrintColour(colour, "\nProcess exited with status %d\n", i)
+	p.PrintColour(colour, "Process exited with status %d\n", i)
 }

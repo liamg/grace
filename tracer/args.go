@@ -22,25 +22,6 @@ const (
 
 type ReturnMetadata ArgMetadata
 
-type ArgType int
-
-const (
-	ArgTypeUnknown ArgType = iota
-	ArgTypeData
-	ArgTypeInt
-	ArgTypeStat
-	ArgTypeLong
-	ArgTypeAddress
-	ArgTypeUnsignedInt
-	ArgTypeUnsignedLong
-	ArgTypePollFdArray
-	ArgTypeObject
-	ArgTypeErrorCode
-	ArgTypeSigAction
-	ArgTypeIovecArray
-	ArgTypeIntArray
-)
-
 type Arg struct {
 	name       string
 	t          ArgType

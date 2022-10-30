@@ -5,6 +5,25 @@ import (
 	"sync"
 )
 
+type ArgType int
+
+const (
+	ArgTypeUnknown ArgType = iota
+	ArgTypeData
+	ArgTypeInt
+	ArgTypeStat
+	ArgTypeLong
+	ArgTypeAddress
+	ArgTypeUnsignedInt
+	ArgTypeUnsignedLong
+	ArgTypePollFdArray
+	ArgTypeObject
+	ArgTypeErrorCode
+	ArgTypeSigAction
+	ArgTypeIovecArray
+	ArgTypeIntArray
+)
+
 type typeHandler func(arg *Arg, metadata ArgMetadata, raw uintptr, next uintptr, ret uintptr, pid int) error
 
 var typesRegistry = map[ArgType]typeHandler{}
@@ -25,5 +44,5 @@ func handleType(arg *Arg, metadata ArgMetadata, raw uintptr, next uintptr, ret u
 	if h, ok := typesRegistry[metadata.Type]; ok {
 		return h(arg, metadata, raw, next, ret, pid)
 	}
-	return fmt.Errorf("no handler registered for type %d", metadata.Type)
+	return nil
 }
