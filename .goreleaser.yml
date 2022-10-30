@@ -1,0 +1,33 @@
+before:
+  hooks:
+    - sudo apt install -y musl-tools
+
+builds:
+  - id: grace
+    main: .
+    binary: grace
+    ldflags:
+      - "-linkmode external -s -w -extldflags '-fno-PIC -static'"
+    env:
+      - CGO_ENABLED=1
+      - CC=musl-gcc
+    goos:
+      - linux
+    goarch:
+      - "amd64"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+archives:
+  - format: binary
+    name_template: "{{ .Binary}}-{{ .Os }}-{{ .Arch }}"
+
+release:
+  prerelease: auto
+  github:
+    owner: liamg
+    name: grace
