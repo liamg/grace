@@ -121,4 +121,4 @@ grace -S -- cat /dev/null
 
 ## Build Dependencies
 
-If you want to build _grace_ yourself instead of using the precompiled binaries, you'll need a recent version of Go (1.19+), `musl-gcc` installed (you can install `musl-tools` on Ubuntu or `musl` on Arch), and kernel headers (install `linux-headers-$(uname -r)` on Ubuntu or `linux-headers` and `kernel-headers-musl` on Arch). _grace_ mainly just pulls constants from the kernel headers, so it's not a huge dependency. You should then have some success running `make build`. Note that many architectures are not yet supported (see below.)
+If you want to build _grace_ yourself instead of using the precompiled binaries, you'll need a recent version of Go (1.19+). Then `make build` is your friend.
