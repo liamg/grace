@@ -4,6 +4,8 @@ on:
 permissions:
   contents: read
   pull-requests: read
+env:
+  CGO_CFLAGS: "-Iheaders/include"
 jobs:
   golangci:
     name: Run golangci-lint
