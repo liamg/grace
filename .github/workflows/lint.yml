@@ -15,6 +15,7 @@ jobs:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
+      - run: make headers
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3.2.0
         with:
