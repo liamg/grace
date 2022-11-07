@@ -19,4 +19,4 @@ jobs:
           go-version: '1.19'
           cache: true
       - name: Run tests
-        run: sudo apt install -y musl-tools && make test
+        run: make test

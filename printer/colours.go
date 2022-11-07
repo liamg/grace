@@ -18,7 +18,6 @@ var colours = []Colour{
 	ColourBlue,
 	ColourYellow,
 	ColourGreen,
-	ColourRed,
 }
 
 func (p *Printer) currentColour() Colour {

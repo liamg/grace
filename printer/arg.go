@@ -30,6 +30,11 @@ func (p *Printer) NewLine(indent int) {
 
 func (p *Printer) PrintArgValue(arg *tracer.Arg, colour Colour, exit bool, propCount int, indent int) int {
 
+	if p.rawOutput {
+		p.PrintColour(colour, "0x%x", arg.Raw())
+		return propCount
+	}
+
 	if arg.ReplaceValueWithAnnotation() {
 		p.PrintColour(colour, "%s", arg.Annotation())
 		return propCount
@@ -39,7 +44,7 @@ func (p *Printer) PrintArgValue(arg *tracer.Arg, colour Colour, exit bool, propC
 	case tracer.ArgTypeData:
 		data := arg.Data()
 		if p.maxStringLen > 0 && len(data) > p.maxStringLen {
-			if exit && p.hexDumpLongStrings {
+			if p.hexDumpLongStrings {
 				p.HexDump(arg.Raw(), arg.Data(), indent)
 				return propCount
 			}
@@ -50,16 +55,15 @@ func (p *Printer) PrintArgValue(arg *tracer.Arg, colour Colour, exit bool, propC
 	case tracer.ArgTypeInt, tracer.ArgTypeLong, tracer.ArgTypeUnsignedInt, tracer.ArgTypeUnsignedLong, tracer.ArgTypeUnknown:
 		p.PrintColour(colour, "%d", arg.Int())
 	case tracer.ArgTypeErrorCode:
-		p.printError(colour, arg)
+		p.printError(arg)
 	case tracer.ArgTypeAddress:
 		p.PrintColour(colour, "0x%x", arg.Raw())
-	case tracer.ArgTypeObject, tracer.ArgTypeStat, tracer.ArgTypeSigAction:
+	case tracer.ArgTypeObject:
 		propCount += p.printObject(arg.Object(), colour, exit, propCount, indent)
-	case tracer.ArgTypeIntArray, tracer.ArgTypePollFdArray, tracer.ArgTypeIovecArray:
+	case tracer.ArgTypeArray:
 		propCount += p.printArray(arg.Array(), colour, exit, propCount, indent)
 	default:
-		// TODO: error here
-		p.PrintColour(colour, "%d (?)", arg.Raw())
+		p.PrintColour(ColourRed, "UNKNOWN TYPE (raw=%d)", arg.Raw())
 	}
 
 	if annotation := arg.Annotation(); annotation != "" {

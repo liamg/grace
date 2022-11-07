@@ -22,6 +22,10 @@ func decodeStruct(memory []byte, target interface{}) error {
 	case reflect.Struct:
 		for i := 0; i < sValue.Type().NumField(); i++ {
 			size := sValue.Type().Field(i).Type.Size()
+			if sValue.Type().Field(i).Name == "_" {
+				index += size
+				continue
+			}
 			raw := memory[index : index+size]
 			if err := decodeAnonymous(sValue.Field(i), raw); err != nil {
 				return err
@@ -38,7 +42,12 @@ func decodeStruct(memory []byte, target interface{}) error {
 func decodeAnonymous(target reflect.Value, raw []byte) error {
 
 	if target.Kind() == reflect.Ptr {
+		target.Set(reflect.New(target.Type().Elem()))
 		target = target.Elem()
+	}
+
+	if !target.CanSet() {
+		return fmt.Errorf("cannot set %s", target.Type())
 	}
 
 	switch target.Kind() {

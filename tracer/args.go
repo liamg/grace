@@ -1,23 +1,30 @@
 package tracer
 
+import (
+	"unsafe"
+
+	"github.com/liamg/grace/tracer/annotation"
+)
+
 type ArgMetadata struct {
 	Name        string
 	Type        ArgType
-	Annotator   func(arg *Arg, pid int)
-	CountFrom   CountLocation
+	Annotator   func(arg annotation.Arg, pid int)
+	LenSource   LenSource
 	Optional    bool
 	Destination bool
 	FixedCount  int
 }
 
-type CountLocation uint8
+type LenSource uint8
 
 const (
-	CountLocationNone CountLocation = iota
-	CountLocationNext
-	CountLocationResult
-	CountLocationNullTerminator
-	CountLocationFixed
+	LenSourceNone LenSource = iota
+	LenSourcePrev
+	LenSourceNext
+	LenSourceNextPointer
+	LenSourceReturnValue
+	LenSourceFixed
 )
 
 type ReturnMetadata ArgMetadata
@@ -92,7 +99,12 @@ func (s Arg) Array() []Arg {
 	return s.array
 }
 
-func processArgument(raw uintptr, next uintptr, ret uintptr, metadata ArgMetadata, pid int, exit bool) (*Arg, error) {
+func (s *Arg) SetAnnotation(annotation string, replace bool) {
+	s.annotation = annotation
+	s.replace = replace
+}
+
+func processArgument(raw uintptr, next, prev uintptr, ret uintptr, metadata ArgMetadata, pid int, exit bool) (*Arg, error) {
 	arg := &Arg{
 		name:    metadata.Name,
 		t:       metadata.Type,
@@ -107,8 +119,18 @@ func processArgument(raw uintptr, next uintptr, ret uintptr, metadata ArgMetadat
 		return arg, nil
 	}
 
+	// resolve next to int from next pointer
+	if metadata.LenSource == LenSourceNextPointer && (exit || !metadata.Destination) && next > 0 {
+		var realNext uint32
+		buf, err := readSize(pid, next, unsafe.Sizeof(realNext))
+		if err != nil {
+			return nil, err
+		}
+		next = uintptr(decodeInt(buf))
+	}
+
 	// process the argument data into something meaningful
-	if err := handleType(arg, metadata, raw, next, ret, pid); err != nil {
+	if err := handleType(arg, metadata, raw, next, prev, ret, pid); err != nil {
 		return nil, err
 	}
 

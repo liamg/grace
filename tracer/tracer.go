@@ -13,14 +13,17 @@ type Tracer struct {
 	handlers struct {
 		syscallExit  func(*Syscall)
 		syscallEnter func(*Syscall)
-		signal       func(syscall.Signal)
+		signal       func(*SigInfo)
 		processExit  func(int)
+		attach       func(int)
+		detach       func(int)
 	}
-	pid        int
-	cmd        *exec.Cmd
-	isExit     bool
-	lastCall   *Syscall
-	lastSignal int
+	pid            int
+	cmd            *exec.Cmd
+	isExit         bool
+	lastCall       *Syscall
+	lastSignal     int
+	receivedSignal syscall.Signal
 }
 
 func New(pid int) *Tracer {
@@ -59,12 +62,20 @@ func (t *Tracer) SetSyscallEnterHandler(handler func(*Syscall)) {
 	t.handlers.syscallEnter = handler
 }
 
-func (t *Tracer) SetSignalHandler(handler func(syscall.Signal)) {
+func (t *Tracer) SetSignalHandler(handler func(*SigInfo)) {
 	t.handlers.signal = handler
 }
 
 func (t *Tracer) SetProcessExitHandler(handler func(int)) {
 	t.handlers.processExit = handler
+}
+
+func (t *Tracer) SetAttachHandler(handler func(int)) {
+	t.handlers.attach = handler
+}
+
+func (t *Tracer) SetDetachHandler(handler func(int)) {
+	t.handlers.detach = handler
 }
 
 func (t *Tracer) Start() error {
@@ -81,6 +92,11 @@ func (t *Tracer) Start() error {
 		} else if err != nil {
 			return err
 		}
+
+	}
+
+	if t.handlers.attach != nil {
+		t.handlers.attach(t.pid)
 	}
 
 	status := syscall.WaitStatus(0)
@@ -88,10 +104,17 @@ func (t *Tracer) Start() error {
 		return err
 	}
 
+	defer func() {
+		if t.handlers.detach != nil {
+			t.handlers.detach(t.pid)
+		}
+	}()
+
 	if t.cmd == nil {
 		defer func() {
 			_ = syscall.PtraceDetach(t.pid)
 			_, _ = syscall.Wait4(t.pid, &status, 0, nil)
+
 		}()
 	}
 
@@ -104,8 +127,7 @@ func (t *Tracer) Start() error {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGPIPE, syscall.SIGQUIT)
 	go func() {
 		for sig := range signalChan {
-			interrupted := sig.(syscall.Signal)
-			fmt.Printf("((SIGNAL: %s))", interrupted) // TODO
+			t.receivedSignal = sig.(syscall.Signal)
 			_ = syscall.Kill(t.pid, syscall.SIGSTOP)
 		}
 	}()
@@ -123,11 +145,11 @@ func (t *Tracer) loop() error {
 			}
 			return err
 		}
+		if t.receivedSignal > 0 {
+			break
+		}
 	}
-}
-
-func isStopSig(sig syscall.Signal) bool {
-	return sig == syscall.SIGSTOP || sig == syscall.SIGTSTP || sig == syscall.SIGTTIN || sig == syscall.SIGTTOU
+	return nil
 }
 
 func (t *Tracer) waitForSyscall() error {
@@ -158,14 +180,18 @@ func (t *Tracer) waitForSyscall() error {
 
 	if status.StopSignal() != syscall.SIGTRAP|0x80 {
 
-		// NOTE: once https://groups.google.com/g/golang-codereviews/c/t2SwaIV-hFs is merged, we can use
-		// syscall.PtraceGetSigInfo() to retrieve the siginfo_t struct and pass it to the signal handler instead
 		if t.handlers.signal != nil {
-			t.handlers.signal(status.StopSignal())
+			info, err := getSignalInfo(t.pid)
+			if err != nil {
+				return err
+			}
+			t.handlers.signal(info)
 		}
 
-		if isStopSig(status.StopSignal()) {
-			// TODO: if we received an interrupt via notify above, return an error here to break the loop
+		if sig := status.StopSignal(); sig == syscall.SIGSTOP || sig == syscall.SIGTSTP || sig == syscall.SIGTTIN || sig == syscall.SIGTTOU {
+			if t.receivedSignal != 0 {
+				return nil
+			}
 			t.lastSignal = int(status.StopSignal())
 		} else if t.lastSignal != 0 {
 			if status.StopSignal() == syscall.SIGCONT {
@@ -178,12 +204,6 @@ func (t *Tracer) waitForSyscall() error {
 			return nil
 		}
 		return nil
-	}
-
-	// if interrupted, stop tracing
-	if status.StopSignal().String() == "interrupt" {
-		_ = syscall.PtraceSyscall(t.pid, int(status.StopSignal()))
-		return fmt.Errorf("process interrupted")
 	}
 
 	// read registers
@@ -202,6 +222,7 @@ func (t *Tracer) waitForSyscall() error {
 	if t.isExit && t.lastCall != nil {
 		if call.number == t.lastCall.number {
 			call.args = t.lastCall.args
+			call.paths = t.lastCall.paths
 		} else {
 			return fmt.Errorf("syscall exit mismatch: %d != %d - this is likely a bug in grace due to an unprocessed signal", call.number, t.lastCall.number)
 		}

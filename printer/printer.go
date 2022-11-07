@@ -3,20 +3,34 @@ package printer
 import (
 	"fmt"
 	"io"
+	"time"
+
+	"github.com/liamg/grace/tracer"
 )
 
 type Printer struct {
-	w                   io.Writer
-	useColours          bool
-	maxStringLen        int
-	hexDumpLongStrings  bool
-	maxHexDumpLen       int
-	maxObjectProperties int
-	colourIndex         int
-	argProgress         int
-	extraNewLine        bool
-	multiline           bool
-	inSyscall           bool
+	w                      io.Writer
+	useColours             bool
+	maxStringLen           int
+	hexDumpLongStrings     bool
+	maxHexDumpLen          int
+	maxObjectProperties    int
+	colourIndex            int
+	argProgress            int
+	extraNewLine           bool
+	multiline              bool
+	inSyscall              bool
+	filter                 Filter
+	lastEntryMatchedFilter bool
+	relativeTimestamps     bool
+	absoluteTimestamps     bool
+	startTime              time.Time
+	showNumbers            bool
+	rawOutput              bool
+}
+
+type Filter interface {
+	Match(syscall *tracer.Syscall, exit bool) bool
 }
 
 func New(w io.Writer) *Printer {
@@ -27,6 +41,7 @@ func New(w io.Writer) *Printer {
 		hexDumpLongStrings:  true,
 		maxHexDumpLen:       4096,
 		maxObjectProperties: 2,
+		startTime:           time.Now(),
 	}
 }
 
@@ -56,6 +71,39 @@ func (p *Printer) SetExtraNewLine(extraNewLine bool) {
 	p.extraNewLine = extraNewLine
 }
 
+func (p *Printer) SetShowAbsoluteTimestamps(timestamps bool) {
+	p.absoluteTimestamps = timestamps
+}
+
+func (p *Printer) SetShowRelativeTimestamps(timestamps bool) {
+	p.relativeTimestamps = timestamps
+}
+
+func (p *Printer) SetMultiLine(multiline bool) {
+	p.multiline = multiline
+}
+
+func (p *Printer) SetFilter(filter Filter) {
+	p.filter = filter
+}
+
+func (p *Printer) SetShowSyscallNumber(number bool) {
+	p.showNumbers = number
+}
+
+func (p *Printer) SetRawOutput(output bool) {
+	p.rawOutput = output
+}
+
+func (p *Printer) PrefixEvent() {
+	if p.relativeTimestamps {
+		p.PrintDim("%12s ", time.Since(p.startTime))
+	}
+	if p.absoluteTimestamps {
+		p.PrintDim("%18s ", time.Now().Format("15:04:05.999999999"))
+	}
+}
+
 func (p *Printer) Print(format string, args ...interface{}) {
 	_, _ = fmt.Fprintf(p.w, format, args...)
 }
@@ -74,10 +122,6 @@ func (p *Printer) PrintColour(colour Colour, format string, args ...interface{})
 	}
 }
 
-func (p *Printer) SetMultiLine(multiline bool) {
-	p.multiline = multiline
-}
-
 func (p *Printer) PrintProcessExit(i int) {
 	colour := ColourGreen
 	if i != 0 {
@@ -90,4 +134,18 @@ func (p *Printer) PrintProcessExit(i int) {
 		p.Print("\n")
 	}
 	p.PrintColour(colour, "Process exited with status %d\n", i)
+}
+
+func (p *Printer) PrintAttach(pid int) {
+	p.PrintColour(ColourYellow, "Attached to process %d\n", pid)
+	if p.multiline {
+		p.Print("\n")
+	}
+}
+
+func (p *Printer) PrintDetach(pid int) {
+	p.PrintColour(ColourYellow, "Detached from process %d\n", pid)
+	if p.multiline {
+		p.Print("\n")
+	}
 }

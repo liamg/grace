@@ -6,14 +6,16 @@ import (
 )
 
 func init() {
-	registerTypeHandler(ArgTypeIntArray, func(arg *Arg, metadata ArgMetadata, raw uintptr, next uintptr, ret uintptr, pid int) error {
+	registerTypeHandler(argTypeIntArray, func(arg *Arg, metadata ArgMetadata, raw, next, prev, ret uintptr, pid int) error {
 		var count int
-		switch metadata.CountFrom {
-		case CountLocationNext:
+		switch metadata.LenSource {
+		case LenSourcePrev:
+			count = int(prev)
+		case LenSourceNext:
 			count = int(next)
-		case CountLocationResult:
+		case LenSourceReturnValue:
 			count = int(ret)
-		case CountLocationFixed:
+		case LenSourceFixed:
 			count = metadata.FixedCount
 		default:
 			return fmt.Errorf("syscall %s has no supported count location", metadata.Name)
@@ -25,7 +27,7 @@ func init() {
 		}
 
 		target := make([]int32, count)
-		if err := decodeAnonymous(reflect.ValueOf(target), mem); err != nil {
+		if err := decodeAnonymous(reflect.ValueOf(&target).Elem(), mem); err != nil {
 			return err
 		}
 
@@ -36,6 +38,7 @@ func init() {
 				raw: uintptr(target[i]),
 			})
 		}
+		arg.t = ArgTypeArray
 
 		return nil
 	})

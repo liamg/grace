@@ -1,6 +1,6 @@
 before:
   hooks:
-    - sudo apt install -y musl-tools
+    - make headers
 
 builds:
   - id: grace
@@ -10,7 +10,7 @@ builds:
       - "-linkmode external -s -w -extldflags '-fno-PIC -static'"
     env:
       - CGO_ENABLED=1
-      - CC=musl-gcc
+      - CGO_CFLAGS="-Iheaders/include"
     goos:
       - linux
     goarch:

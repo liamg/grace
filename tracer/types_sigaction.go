@@ -6,7 +6,7 @@ import (
 )
 
 /*
-#include <signal.h>
+#include <asm/signal.h>
 
 const void* sig_dfl = SIG_DFL;
 const void* sig_ign = SIG_IGN;
@@ -22,7 +22,7 @@ type sigAction struct {
 }
 
 func init() {
-	registerTypeHandler(ArgTypeSigAction, func(arg *Arg, metadata ArgMetadata, raw uintptr, next uintptr, ret uintptr, pid int) error {
+	registerTypeHandler(argTypeSigAction, func(arg *Arg, metadata ArgMetadata, raw, next, prev, ret uintptr, pid int) error {
 		if raw > 0 {
 
 			raw, err := readSize(pid, raw, unsafe.Sizeof(sigAction{}))
@@ -36,6 +36,10 @@ func init() {
 			}
 
 			arg.obj = convertSigAction(&action)
+			arg.t = ArgTypeObject
+		} else {
+			arg.annotation = "NULL"
+			arg.replace = true
 		}
 		return nil
 	})
@@ -119,21 +123,4 @@ func convertSigAction(action *sigAction) *Object {
 	})
 
 	return &obj
-}
-
-func annotateSigProcMaskFlags(arg *Arg, pid int) {
-
-	var joins []string
-	if arg.Raw()&C.SIG_BLOCK != 0 {
-		joins = append(joins, "SIG_BLOCK")
-	}
-	if arg.Raw()&C.SIG_UNBLOCK != 0 {
-		joins = append(joins, "SIG_UNBLOCK")
-	}
-	if arg.Raw()&C.SIG_SETMASK != 0 {
-		joins = append(joins, "SIG_SETMASK")
-	}
-
-	arg.annotation = strings.Join(joins, "|")
-	arg.replace = arg.annotation != ""
 }

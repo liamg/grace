@@ -2,14 +2,17 @@ package tracer
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/liamg/grace/tracer/annotation"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
-	registerTypeHandler(ArgTypeStat, func(arg *Arg, metadata ArgMetadata, raw uintptr, next uintptr, ret uintptr, pid int) error {
+	registerTypeHandler(argTypeStat, func(arg *Arg, metadata ArgMetadata, raw, next, prev, ret uintptr, pid int) error {
 		if raw > 0 {
 			// read the raw C struct from the process memory
 			rawStat, err := readSize(pid, raw, unsafe.Sizeof(syscall.Stat_t{}))
@@ -17,14 +20,16 @@ func init() {
 				return err
 			}
 
-			// safely squish it into a syscall.Stat_t in our own memory space
 			var stat syscall.Stat_t
 			if err := decodeStruct(rawStat, &stat); err != nil {
 				return err
 			}
 
-			// convert the stat into a nice object for output
 			arg.obj = convertStat(&stat)
+			arg.t = ArgTypeObject
+		} else {
+			arg.annotation = "NULL"
+			arg.replace = true
 		}
 		return nil
 	})
@@ -47,7 +52,7 @@ func convertStat(stat *syscall.Stat_t) *Object {
 		name:       "dev",
 		t:          ArgTypeUnsignedInt,
 		raw:        uintptr(stat.Dev),
-		annotation: deviceToString(stat.Dev),
+		annotation: annotation.DeviceToString(stat.Dev),
 		replace:    true,
 	})
 
@@ -103,23 +108,11 @@ func convertStat(stat *syscall.Stat_t) *Object {
 		name:       "rdev",
 		t:          ArgTypeUnsignedInt,
 		raw:        uintptr(stat.Rdev),
-		annotation: deviceToString(stat.Rdev),
+		annotation: annotation.DeviceToString(stat.Rdev),
 		replace:    true,
 	})
 
 	return &obj
-}
-
-func deviceToString(dev uint64) string {
-	major := "0"
-	if m := unix.Major(dev); m != 0 {
-		major = fmt.Sprintf("0x%x", m)
-	}
-	minor := "0"
-	if m := unix.Minor(dev); m != 0 {
-		minor = fmt.Sprintf("0x%x", m)
-	}
-	return fmt.Sprintf("makedev(%s, %s)", major, minor)
 }
 
 func permModeToString(mode uint32) string {
