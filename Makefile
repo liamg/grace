@@ -14,7 +14,6 @@ linux:
 
 headers: linux
 	cd linux && make headers_install ARCH=x86_64 INSTALL_HDR_PATH=../headers
-	rm -rf linux
 
 .PHONY: build
 build: headers
