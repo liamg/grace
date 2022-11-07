@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
           cache-dependency-path: go.sum
       - run: make headers
       - name: golangci-lint
